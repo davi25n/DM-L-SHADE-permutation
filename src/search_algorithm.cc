@@ -18,14 +18,17 @@ void searchAlgorithm::initializeParameters() {
 //usado em LSHADE na linha 32 e por DMLSHADE na linha 44.
 //recebe como parametros o vetor pop e o vetor fitness correspondente
 void searchAlgorithm::evaluatePopulation(const vector<Individual> &pop, vector<Fitness> &fitness) {
-  for (int i = 0; i < pop_size; i++) {
-    if (g_flowshop_engine != nullptr) {
+  if (g_flowshop_engine != nullptr) {
+    for (int i = 0; i < pop_size; i++) {
       vector<double> keys(pop[i], pop[i] + problem_size);
       fitness[i] = g_flowshop_engine->evaluate(keys, "PFS", "Makespan"); // colocar o if else antes do for
-    } else {
-      cec14_test_func(pop[i],  &fitness[i], problem_size, 1, function_number);
-    }
+    } 
+  }else {
+      for (int i = 0; i < pop_size; i++) {
+        cec14_test_func(pop[i],  &fitness[i], problem_size, 1, function_number);
+      }
   }
+  
 }
 
 void searchAlgorithm::initializeFitnessFunctionParameters() {
