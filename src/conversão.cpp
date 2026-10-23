@@ -201,8 +201,7 @@ namespace FlowShop {
         std::vector<int> sequences;
 
         if (mode == "PFS") {
-            std::vector<int> seq = bucket_sort_decode(keys, 0, n);
-            sequences.assign(seq.begin(), seq.end());
+            sequences = bucket_sort_decode(keys, 0, n);//está gerando a ordem inversa às chaves
         } /*else {
             for (int i = 0; i < m; ++i) {
                 sequences.push_back(bucket_sort_decode(keys, i * n, n));
