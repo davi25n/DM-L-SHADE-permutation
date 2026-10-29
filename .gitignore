@@ -32,7 +32,6 @@
 *.app
 solver
 
-.vscode/
 /função/
 
 __pycache__/

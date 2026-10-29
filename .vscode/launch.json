@@ -1,0 +1,68 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug solver (instância pequena)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/solver_debug",
+      "args": ["--i", "I_2_4_2_1.txt"],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+        {
+          "description": "Ativar formatação pretty-printing do GDB",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "Build solver (debug)"
+    },
+    {
+      "name": "Debug solver (instância grande)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/solver_debug",
+      "args": ["--i", "Ta119_7.txt"],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+        {
+          "description": "Ativar formatação pretty-printing do GDB",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "Build solver (debug)"
+    },
+    {
+      "name": "Debug solver (instância media)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/solver_debug",
+      "args": ["--i", "I_4_16_5_5.txt"],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+        {
+          "description": "Ativar formatação pretty-printing do GDB",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "Build solver (debug)"
+    }
+  ]
+}
