@@ -249,14 +249,8 @@ namespace FlowShop {
                 double tard = finish_times[m - 1][j] - static_cast<double>(due_dates[j]);
                 if (tard > 0) total_tardiness += tard;
             }
-            /*if (total_tardiness <= 5168) {
-                for (int j = 0; j < n; ++j) {
-                    printf("Tardiness: %0.2f\n", finish_times[m - 1][j] - static_cast<double>(due_dates[j]));
-                }
-                printf("\n");
-            }*/
             return total_tardiness;
-        } else if (objective == "Flowtime") {
+        } else if (objective == "LMAX") {
             double total_flowtime = 0.0;
             for (int j = 0; j < n; ++j) {
                 total_flowtime = std::max(total_flowtime, finish_times[m - 1][j] -static_cast<double>(due_dates[j]));
