@@ -12,6 +12,12 @@ void searchAlgorithm::initializeParameters() {
   problem_size = g_problem_size;
   max_num_evaluations = g_max_num_evaluations;
   pop_size = g_pop_size;
+  use_time_limit = g_use_time_limit;
+  max_time_ms = g_max_time_ms;
+  start_time = std::chrono::steady_clock::now();
+  total_eval_ms = 0;
+  timed_evals = 0;
+  time_is_up = false;
   initializeFitnessFunctionParameters();
 }
 
@@ -20,9 +26,20 @@ void searchAlgorithm::initializeParameters() {
 void searchAlgorithm::evaluatePopulation(const vector<Individual> &pop, vector<Fitness> &fitness) {
   if (g_flowshop_engine != nullptr) {
     for (int i = 0; i < pop_size; i++) {
+      // not enough time for one more evaluation: the remaining individuals get an infinite
+      // fitness, so they never replace their parents, and the search is terminated
+      if (use_time_limit && !hasTimeFor(avgEvalMs())) {
+        time_is_up = true;
+        for (int k = i; k < pop_size; k++)
+          fitness[k] = std::numeric_limits<Fitness>::infinity();
+        break;
+      }
+      auto eval_start = std::chrono::steady_clock::now();
       vector<double> keys(pop[i], pop[i] + problem_size);
-      fitness[i] = g_flowshop_engine->evaluate(keys, "PFS", "Makespan");
-    } 
+      fitness[i] = g_flowshop_engine->evaluate(keys, "PFS", "Tardiness");
+      total_eval_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - eval_start).count();
+      timed_evals++;
+    }
   }else {
       for (int i = 0; i < pop_size; i++) {
         cec14_test_func(pop[i],  &fitness[i], problem_size, 1, function_number);

@@ -23,6 +23,10 @@ int ini_flag=0,n_flag,func_flag,*SS;
 int g_function_number;
 int g_problem_size;
 unsigned int g_max_num_evaluations;
+bool g_use_time_limit = false;
+double g_max_time_ms = 0;
+// time factor f (ms) of the flowshop stopping criterion n_jobs * n_machines * f
+const double TIME_FACTOR_MS = 60.0;
 
 const int MAX_JOBS = 500;
 unsigned int n_jobs;
@@ -50,7 +54,7 @@ static void print_seconds(double seconds) {
 int main(int argc, char **argv) {
   string instance_path;
   //number of runs
-  int num_runs = 10;
+  int num_runs = 5;
     //dimension size. please select from 10, 30, 50, 100
   g_problem_size = 10;
   //available number of fitness evaluations 
@@ -102,7 +106,9 @@ int main(int argc, char **argv) {
     try {
       instance = FlowShop::FlowShopEngine::carregar_instancia_txt(instance_path);
       g_problem_size = instance.n_jobs;
-      g_max_num_evaluations = (g_problem_size * 10000);// Numero de execuções 
+      g_max_num_evaluations = (g_problem_size * 10000);// Numero de execuções
+      g_use_time_limit = true;// criterio de parada por tempo: n * m * f
+      g_max_time_ms = instance.n_jobs * instance.n_machines * TIME_FACTOR_MS;
       g_pop_size = (int)round(g_problem_size * 18);
       g_flowshop_engine = new FlowShop::FlowShopEngine(instance.n_jobs, instance.n_machines, instance.proc_times, instance.due_dates);
     } catch (const std::exception &error) {
@@ -114,7 +120,12 @@ int main(int argc, char **argv) {
   if (function_start == function_end) {
     g_function_number = function_start;
     cout << "\n-------------------------------------------------------" << endl;
-    cout << "Function = " << g_function_number << ", Dimension size = " << g_problem_size << "\n" << endl;
+    cout << "Function = " << instance_path << ", Dimension size = " << g_problem_size << "\n" << endl;
+    if (g_use_time_limit) {
+      cout << "Time limit per run = ";
+      print_seconds(g_max_time_ms / 1000.0);
+      cout << "\n" << endl;
+    }
 
     Fitness *bsf_fitness_array = (Fitness*)malloc(sizeof(Fitness) * num_runs);
     Fitness mean_bsf_fitness = 0;

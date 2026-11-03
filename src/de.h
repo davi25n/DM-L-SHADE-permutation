@@ -15,6 +15,8 @@
 #include <string.h>
 #include <vector>
 #include <math.h>
+#include <chrono>
+#include <limits>
 #include "conversão.hpp"
 
 using namespace std;
@@ -27,6 +29,9 @@ typedef map<int, double> pattern;
 extern int g_function_number;
 extern int g_problem_size;
 extern unsigned int g_max_num_evaluations;
+// stopping criterion: true -> time limit (flowshop, --i), false -> number of evaluations (CEC, --f)
+extern bool g_use_time_limit;
+extern double g_max_time_ms;
 extern int function_name;
 
 extern int g_pop_size;
@@ -96,10 +101,32 @@ protected:
       j--;
     }
 
-    if (first < (i -1)) sortIndexWithQuickSort(array, first, i - 1, index);  
-    if ((j + 1) < last) sortIndexWithQuickSort(array, j + 1, last, index);    
+    if (first < (i -1)) sortIndexWithQuickSort(array, first, i - 1, index);
+    if ((j + 1) < last) sortIndexWithQuickSort(array, j + 1, last, index);
   }
-  
+
+  // time limit helpers (only used when use_time_limit is true)
+  inline double elapsedMs() {
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start_time).count();
+  }
+
+  inline double avgEvalMs() {
+    return timed_evals > 0 ? total_eval_ms / timed_evals : 0;
+  }
+
+  // the search stops a bit before the limit: the margin is the larger of
+  // SAFETY_EVALS average evaluations and SAFETY_RATE of the time limit
+  inline double safetyMarginMs() {
+    const double SAFETY_EVALS = 5;
+    const double SAFETY_RATE = 0.01;
+    return std::max(SAFETY_EVALS * avgEvalMs(), SAFETY_RATE * max_time_ms);
+  }
+
+  // true if a task estimated to take task_ms can still finish before the time limit (minus the margin)
+  inline bool hasTimeFor(double task_ms) {
+    return elapsedMs() + task_ms + safetyMarginMs() <= max_time_ms;
+  }
+
   int function_number;
   int problem_size;
   variable max_region;
@@ -109,6 +136,14 @@ protected:
   Fitness epsilon;
   unsigned int max_num_evaluations;
   int pop_size;
+
+  bool use_time_limit;
+  double max_time_ms;
+  std::chrono::steady_clock::time_point start_time;
+  double total_eval_ms;
+  long long timed_evals;
+  // set when an evaluation was skipped because the time limit is near
+  bool time_is_up;
 };
 
 class LSHADE: public searchAlgorithm {

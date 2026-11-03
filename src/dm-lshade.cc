@@ -72,7 +72,7 @@ Fitness DMLSHADE::run()
         //   cout << bsf_fitness - optimum << endl;
         // }
 
-        if (nfes >= max_num_evaluations)
+        if (!use_time_limit && nfes >= max_num_evaluations)
             break;
     }
     ////////////////////////////////////////////////////////////////////////////
@@ -123,8 +123,12 @@ Fitness DMLSHADE::run()
     // of variables that a solution
     vector<map<int, double>> patterns;
 
+    // duration of the last pattern mining, used to check if there is time for the next one
+    double last_mining_ms = 0;
+
     // main loop
-    while (nfes < max_num_evaluations)
+    // stopping criterion: time limit (flowshop) or number of fitness evaluations (CEC)
+    while (use_time_limit ? (!time_is_up && hasTimeFor(avgEvalMs())) : (nfes < max_num_evaluations))
     {
         generation++;
         for (int i = 0; i < pop_size; i++)
@@ -136,7 +140,11 @@ Fitness DMLSHADE::run()
         // Mining steps
         updateElite(pop, fitness, sorted_array);
         if (generation % mining_generation_step == 0){
+          if (use_time_limit && !hasTimeFor(last_mining_ms))
+            break;
+          double mining_start_ms = elapsedMs();
           patterns = minePatterns();
+          last_mining_ms = elapsedMs() - mining_start_ms;
 
           int mpi = min((int)patterns.size(), pop_size); // max patterns insertions
           for (size_t i = 0; i < mpi; i++) {
@@ -211,7 +219,7 @@ Fitness DMLSHADE::run()
             // //      cout << nfes << " " << bsf_fitness - optimum << endl;
             // 	cout << bsf_fitness - optimum << endl;
             // }
-            if (nfes >= max_num_evaluations)
+            if (!use_time_limit && nfes >= max_num_evaluations)
                 break;
         }
         ////////////////////////////////////////////////////////////////////////////
@@ -301,7 +309,10 @@ Fitness DMLSHADE::run()
         }
 
         // calculate the population size in the next generation
-        plan_pop_size = round((((min_pop_size - max_pop_size) / (double)max_num_evaluations) * nfes) + max_pop_size);
+        if (use_time_limit)
+            plan_pop_size = round(((min_pop_size - max_pop_size) * min(elapsedMs() / max_time_ms, 1.0)) + max_pop_size);
+        else
+            plan_pop_size = round((((min_pop_size - max_pop_size) / (double)max_num_evaluations) * nfes) + max_pop_size);
 
         if (pop_size > plan_pop_size)
         {
