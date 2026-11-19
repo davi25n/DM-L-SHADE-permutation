@@ -5,12 +5,12 @@ TARGET = solver
 OBJS := $(patsubst %.cc,%.o,$(shell find src -name '*.cc')) \
 	$(patsubst %.cpp,%.o,$(shell find src -name '*.cpp' ! -path 'src/função/*'))
 CC = g++
-OPTION = -std=c++14 -O3
+OPTION = -std=c++14 -O3 -pthread
 LIB_DIR = ./src/lib
 INC_DIR = ./src/include
 
 # Link the static library directly
-LDFLAGS = $(LIB_DIR)/libpyclustering.a -lm
+LDFLAGS = $(LIB_DIR)/libpyclustering.a -lm -pthread
 
 # Add -I to specify the header file directory
 CFLAGS = -I$(INC_DIR) -I$(INC_DIR)/pyclustering

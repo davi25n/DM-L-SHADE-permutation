@@ -12,7 +12,7 @@
 #include <fstream>
 #include <vector>
 #include "de.h"
-#include "conversão.hpp"
+#include "conversao.hpp"
 
 #include <stdexcept>
 #include <chrono>
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
   g_max_num_evaluations = g_problem_size * 10000;
 
   //random seed is selected based on time according to competition rules
-  srand((unsigned)time(NULL));
+  srand((unsigned)time(NULL));//ajustar caso tenham execuçoes paralelas
 
   //L-SHADE parameters
   g_pop_size = (int)round(g_problem_size * 18);

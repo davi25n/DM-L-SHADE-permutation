@@ -17,7 +17,7 @@
 #include <math.h>
 #include <chrono>
 #include <limits>
-#include "conversão.hpp"
+#include "conversao.hpp"
 
 using namespace std;
 
