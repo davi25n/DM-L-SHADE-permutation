@@ -25,7 +25,7 @@ int g_problem_size;
 unsigned int g_max_num_evaluations;
 bool g_use_time_limit = false;
 double g_max_time_ms = 0;
-// time factor f (ms) of the flowshop stopping criterion n_jobs * n_machines * f
+// time factor f (ms) of the flowshop stopping criterion n_jobs * n_machines * f/2
 const double TIME_FACTOR_MS = 60.0;
 
 const int MAX_JOBS = 500;
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
       g_problem_size = instance.n_jobs;
       g_max_num_evaluations = (g_problem_size * 10000);// Numero de execuções
       g_use_time_limit = true;// criterio de parada por tempo: n * m * f
-      g_max_time_ms = instance.n_jobs * instance.n_machines * TIME_FACTOR_MS;
+      g_max_time_ms = instance.n_jobs * instance.n_machines * TIME_FACTOR_MS/2.0;
       g_pop_size = (int)round(g_problem_size * 18);
       g_flowshop_engine = new FlowShop::FlowShopEngine(instance.n_jobs, instance.n_machines, instance.proc_times, instance.due_dates);
     } catch (const std::exception &error) {
