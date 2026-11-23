@@ -143,7 +143,7 @@ Fitness DMLSHADE::run()
           if (use_time_limit && !hasTimeFor(last_mining_ms))
             break;
           double mining_start_ms = elapsedMs();
-          patterns = minePatterns();
+          //patterns = minePatterns();
           last_mining_ms = elapsedMs() - mining_start_ms;
 
           int mpi = min((int)patterns.size(), pop_size); // max patterns insertions
