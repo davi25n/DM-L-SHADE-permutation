@@ -389,7 +389,7 @@ void DMLSHADE::updateElite(const vector<Individual> &pop, vector<Fitness> &fitne
 }
 
 
-vector<map<int, double>> DMLSHADE::minePatterns()
+/*vector<map<int, double>> DMLSHADE::minePatterns()
 {
     vector<vector<double>> data;
     for (size_t i = 0; i < elite.size(); i++)
@@ -424,7 +424,7 @@ vector<map<int, double>> DMLSHADE::minePatterns()
 	}
     
     return patterns;
-}
+}*/
 
 void DMLSHADE::reducePopulationWithSort(vector<Individual> &pop, vector<Fitness> &fitness) {
   int worst_ind;
