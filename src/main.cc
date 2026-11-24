@@ -16,6 +16,7 @@
 
 #include <stdexcept>
 #include <chrono>
+#include <random>
 
 double *OShift,*M,*y,*z,*x_bound;
 int ini_flag=0,n_flag,func_flag,*SS;
@@ -39,20 +40,26 @@ double g_arc_rate;
 int g_memory_size;
 double g_p_best_rate;
 FlowShop::FlowShopEngine *g_flowshop_engine = nullptr;
+// flowshop objective, given by --i <objective> <instance>: Makespan, Tardiness or LMAX
+string g_objective;
 
 void cleanup_binary_func();
 
-// prints a duration in seconds with fixed notation, keeping cout's previous format
-static void print_seconds(double seconds) {
-  std::ios_base::fmtflags old_flags = std::cout.flags();
-  std::streamsize old_precision = std::cout.precision();
-  std::cout << std::fixed << std::setprecision(4) << seconds << " s";
-  std::cout.flags(old_flags);
-  std::cout.precision(old_precision);
+// prints a duration in seconds with fixed notation, keeping the stream's previous format
+static void print_seconds(std::ostream &out, double seconds) {
+  std::ios_base::fmtflags old_flags = out.flags();
+  std::streamsize old_precision = out.precision();
+  out << std::fixed << std::setprecision(4) << seconds << " s";
+  out.flags(old_flags);
+  out.precision(old_precision);
 }
 
 int main(int argc, char **argv) {
   string instance_path;
+  string instance_name;
+  // results file: resultados/<objective>/<instance>, opened in append mode (created if missing).
+  // Only opened with --i; in CEC mode (--f) it stays closed and writes to it are ignored.
+  std::ofstream results_file;
   //number of runs
   int num_runs = 5;
     //dimension size. please select from 10, 30, 50, 100
@@ -60,8 +67,8 @@ int main(int argc, char **argv) {
   //available number of fitness evaluations 
   g_max_num_evaluations = g_problem_size * 10000;
 
-  //random seed is selected based on time according to competition rules
-  srand((unsigned)time(NULL));//ajustar caso tenham execuçoes paralelas
+  // seed from the OS entropy source: parallel jobs started in the same second get different seeds
+  srand(std::random_device{}());
 
   //L-SHADE parameters
   g_pop_size = (int)round(g_problem_size * 18);
@@ -90,10 +97,21 @@ int main(int argc, char **argv) {
       }
       break;
     }
-    else if (strcmp(argv[i], "--i") == 0 && i + 1 < argc) {
-      instance_path = "src/instancias/" + string(argv[i + 1]);
+    else if (strcmp(argv[i], "--i") == 0) {
+      if (i + 2 >= argc) {
+        cerr << "Usage: " << argv[0] << " --i <Makespan|Tardiness|LMAX> <instance_file>" << endl;
+        return 1;
+      }
+      g_objective = argv[i + 1];
+      if (g_objective != "Makespan" && g_objective != "Tardiness" && g_objective != "LMAX") {
+        cerr << "Invalid objective '" << g_objective << "'. Please use Makespan, Tardiness or LMAX." << endl;
+        return 1;
+      }
+      instance_name = argv[i + 2];
+      instance_path = "src/instancias/" + instance_name;
       function_start = 1;
       function_end = 1;
+      i += 2;
     }
   }
   if (instance_path.empty() && function_start != function_end) {
@@ -115,16 +133,31 @@ int main(int argc, char **argv) {
       cerr << "Error loading instance: " << error.what() << endl;
       return 1;
     }
+
+    string results_path = "resultados/" + g_objective + "/" + instance_name;
+    results_file.open(results_path, std::ios::app);
+    if (!results_file.is_open()) {
+      cerr << "Error: could not open results file '" << results_path
+           << "'. Check that the folder resultados/" << g_objective << "/ exists." << endl;
+      return 1;
+    }
+    // same number format that DMLSHADE::run() sets on cout
+    results_file << scientific << setprecision(8);
   }
   //int i = function_start - 1;
   if (function_start == function_end) {
     g_function_number = function_start;
     cout << "\n-------------------------------------------------------" << endl;
     cout << "Function = " << instance_path << ", Dimension size = " << g_problem_size << "\n" << endl;
+    results_file << "\n-------------------------------------------------------\n";
+    results_file << "Function = " << instance_path << ", Dimension size = " << g_problem_size << "\n\n";
     if (g_use_time_limit) {
       cout << "Time limit per run = ";
-      print_seconds(g_max_time_ms / 1000.0);
+      print_seconds(cout, g_max_time_ms / 1000.0);
       cout << "\n" << endl;
+      results_file << "Time limit per run = ";
+      print_seconds(results_file, g_max_time_ms / 1000.0);
+      results_file << "\n\n";
     }
 
     Fitness *bsf_fitness_array = (Fitness*)malloc(sizeof(Fitness) * num_runs);
@@ -143,8 +176,11 @@ int main(int argc, char **argv) {
       auto run_end = std::chrono::steady_clock::now();
       run_time_array[j] = std::chrono::duration<double>(run_end - run_start).count();
       cout << j + 1 << "th run, " << "error value = " << bsf_fitness_array[j] << ", time = ";
-      print_seconds(run_time_array[j]);
+      print_seconds(cout, run_time_array[j]);
       cout << endl;
+      results_file << j + 1 << "th run, " << "error value = " << bsf_fitness_array[j] << ", time = ";
+      print_seconds(results_file, run_time_array[j]);
+      results_file << endl; // flush: finished runs are saved even if the job is killed later
     }
     for (int j = 0; j < num_runs; j++) mean_bsf_fitness += bsf_fitness_array[j];
     mean_bsf_fitness /= num_runs;
@@ -158,11 +194,23 @@ int main(int argc, char **argv) {
     for (int j = 0; j < num_runs; j++) std_time += pow((mean_time - run_time_array[j]), 2.0);
     std_time = sqrt(std_time / num_runs);
 
-    cout  << "\nmean = " << mean_bsf_fitness << ", std = " << std_bsf_fitness << endl;
-    cout  << "time: mean = "; print_seconds(mean_time);
-    cout  << ", std = "; print_seconds(std_time);
-    cout  << ", total = "; print_seconds(total_time);
+    Fitness best_bsf_fitness = bsf_fitness_array[0];
+    for (int j = 1; j < num_runs; j++) best_bsf_fitness = min(best_bsf_fitness, bsf_fitness_array[j]);
+
+    cout  << "\nmean = " << mean_bsf_fitness << ", std = " << std_bsf_fitness << ", best = " << best_bsf_fitness << endl;
+    cout  << "time: mean = "; print_seconds(cout, mean_time);
+    cout  << ", std = "; print_seconds(cout, std_time);
+    cout  << ", total = "; print_seconds(cout, total_time);
     cout  << endl;
+
+    results_file << "\nmean = " << mean_bsf_fitness << ", std = " << std_bsf_fitness << ", best = " << best_bsf_fitness << "\n";
+    results_file << "time: mean = "; print_seconds(results_file, mean_time);
+    results_file << ", std = "; print_seconds(results_file, std_time);
+    results_file << ", total = "; print_seconds(results_file, total_time);
+    results_file << "\n";
+    // one machine-readable line per execution: grep RESULT resultados/*/* gives a table
+    results_file << "RESULT;" << instance_name << ";" << g_objective << ";" << mean_bsf_fitness << ";"
+                 << std_bsf_fitness << ";" << best_bsf_fitness << ";" << mean_time << endl;
     free(bsf_fitness_array);
     free(run_time_array);
   }

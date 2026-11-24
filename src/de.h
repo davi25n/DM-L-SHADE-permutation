@@ -39,6 +39,7 @@ extern int g_memory_size;
 extern double g_p_best_rate;
 extern double g_arc_rate;
 extern FlowShop::FlowShopEngine *g_flowshop_engine;
+extern string g_objective;
 
 void cec14_test_func(double *, double *,int,int,int);
 

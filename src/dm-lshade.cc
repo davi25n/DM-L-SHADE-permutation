@@ -413,8 +413,8 @@ vector<map<int, double>> DMLSHADE::minePatterns()
 		solver.process(data, output_result);
 	}
 	
-    map<int, double> _pattern;
-    vector<map<int, double>> patterns;
+    map<int, double> _pattern; //possivel padronização baseado na ordem de chegada e não de fitness
+    vector<map<int, double>> patterns; //mineração de dados = injeção de copias de um ponto
     auto centers = output_result.centers();
 	for(auto center:centers) {
 		for (size_t j = 0; j < problem_size; j++) {	

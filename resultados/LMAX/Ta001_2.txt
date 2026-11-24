@@ -1,0 +1,15 @@
+
+-------------------------------------------------------
+Function = src/instancias/Ta001_2.txt, Dimension size = 20
+
+Time limit per run = 9.0000 s
+
+1th run, error value = 8.15000000e+02, time = 8.9100 s
+2th run, error value = 8.15000000e+02, time = 8.9100 s
+3th run, error value = 8.15000000e+02, time = 8.9100 s
+4th run, error value = 8.15000000e+02, time = 8.9100 s
+5th run, error value = 8.15000000e+02, time = 8.9100 s
+
+mean = 8.15000000e+02, std = 0.00000000e+00, best = 8.15000000e+02
+time: mean = 8.9100 s, std = 0.0000 s, total = 44.5504 s
+RESULT;Ta001_2.txt;LMAX;8.15000000e+02;0.00000000e+00;8.15000000e+02;8.91000310e+00

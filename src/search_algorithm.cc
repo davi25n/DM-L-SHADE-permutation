@@ -36,7 +36,7 @@ void searchAlgorithm::evaluatePopulation(const vector<Individual> &pop, vector<F
       }
       auto eval_start = std::chrono::steady_clock::now();
       vector<double> keys(pop[i], pop[i] + problem_size);
-      fitness[i] = g_flowshop_engine->evaluate(keys, "PFS", "Tardiness");
+      fitness[i] = g_flowshop_engine->evaluate(keys, "PFS", g_objective);
       total_eval_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - eval_start).count();
       timed_evals++;
     }
