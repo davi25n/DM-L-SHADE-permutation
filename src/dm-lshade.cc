@@ -143,7 +143,7 @@ Fitness DMLSHADE::run()
           if (use_time_limit && !hasTimeFor(last_mining_ms))
             break;
           double mining_start_ms = elapsedMs();
-          //patterns = minePatterns();
+          patterns = minePatterns();
           last_mining_ms = elapsedMs() - mining_start_ms;
 
           int mpi = min((int)patterns.size(), pop_size); // max patterns insertions
@@ -389,7 +389,7 @@ void DMLSHADE::updateElite(const vector<Individual> &pop, vector<Fitness> &fitne
 }
 
 
-/*vector<map<int, double>> DMLSHADE::minePatterns()
+vector<map<int, double>> DMLSHADE::minePatterns()
 {
     vector<vector<double>> data;
     for (size_t i = 0; i < elite.size(); i++)
@@ -424,7 +424,7 @@ void DMLSHADE::updateElite(const vector<Individual> &pop, vector<Fitness> &fitne
 	}
     
     return patterns;
-}*/
+}
 
 void DMLSHADE::reducePopulationWithSort(vector<Individual> &pop, vector<Fitness> &fitness) {
   int worst_ind;
