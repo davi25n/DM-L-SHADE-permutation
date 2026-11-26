@@ -3,7 +3,7 @@
   See the details of L-SHADE in the following paper:
 
   * Ryoji Tanabe and Alex Fukunaga: Improving the Search Performance of SHADE Using Linear Population Size Reduction,  Proc. IEEE Congress on Evolutionary Computation (CEC-2014), Beijing, July, 2014.
-  
+
   Version: 1.1  Date: 9/Jun/2014
   Written by Ryoji Tanabe (rt.ryoji.tanabe [at] gmail.com)
 */
@@ -17,6 +17,8 @@
 #include <stdexcept>
 #include <chrono>
 #include <random>
+#include <sstream>
+#include <unistd.h>
 
 double *OShift,*M,*y,*z,*x_bound;
 int ini_flag=0,n_flag,func_flag,*SS;
@@ -40,31 +42,49 @@ double g_arc_rate;
 int g_memory_size;
 double g_p_best_rate;
 FlowShop::FlowShopEngine *g_flowshop_engine = nullptr;
-// flowshop objective, given by --i <objective> <instance>: Makespan, Tardiness or LMAX
+// flowshop objective currently being optimized: Makespan, Tardiness, LMAX or Completion
 string g_objective;
 
 void cleanup_binary_func();
 
-// prints a duration in seconds with fixed notation, keeping the stream's previous format
-static void print_seconds(std::ostream &out, double seconds) {
-  std::ios_base::fmtflags old_flags = out.flags();
-  std::streamsize old_precision = out.precision();
-  out << std::fixed << std::setprecision(4) << seconds << " s";
-  out.flags(old_flags);
-  out.precision(old_precision);
+// objectives run by "--i <instance>", in this order (also the column order of the results line)
+static const vector<string> ALL_OBJECTIVES = {"Makespan", "Tardiness", "LMAX", "Completion"};
+static const string RESULTS_DIR = "resultados";
+
+static bool is_objective(const string &name) {
+  for (const string &objective : ALL_OBJECTIVES)
+    if (objective == name) return true;
+  return false;
+}
+
+// "Ta001_2.txt" or "sub/Ta001_2.txt" -> "Ta001_2"
+static string base_name(const string &file_name) {
+  size_t slash = file_name.find_last_of('/');
+  string name = (slash == string::npos) ? file_name : file_name.substr(slash + 1);
+  size_t dot = name.find_last_of('.');
+  return (dot == string::npos || dot == 0) ? name : name.substr(0, dot);
+}
+
+// plain notation with a decimal comma: 14062.6 -> "14062,6", 14043 -> "14043"
+static string format_value(double value) {
+  std::ostringstream ss;
+  ss << std::setprecision(10) << value;
+  string text = ss.str();
+  for (char &c : text)
+    if (c == '.') c = ',';
+  return text;
 }
 
 int main(int argc, char **argv) {
   string instance_path;
   string instance_name;
-  // results file: resultados/<objective>/<instance>, opened in append mode (created if missing).
-  // Only opened with --i; in CEC mode (--f) it stays closed and writes to it are ignored.
-  std::ofstream results_file;
+  // objectives run in this execution: one (--i <objective> <instance>) or all four (--i <instance>)
+  vector<string> objectives;
   //number of runs
-  int num_runs = 5;
+  int num_runs = 30;
     //dimension size. please select from 10, 30, 50, 100
   g_problem_size = 10;
-  //available number of fitness evaluations 
+  //available number of fitness evaluations
   g_max_num_evaluations = g_problem_size * 10000;
 
   // seed from the OS entropy source: parallel jobs started in the same second get different seeds
@@ -84,7 +104,7 @@ int main(int argc, char **argv) {
   // Parse command-line arguments for function number
   int function_start = 1;
   int function_end = 31;
-  
+
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--f") == 0 && i + 1 < argc) {
       int func_num = atoi(argv[i + 1]);
@@ -98,20 +118,28 @@ int main(int argc, char **argv) {
       break;
     }
     else if (strcmp(argv[i], "--i") == 0) {
-      if (i + 2 >= argc) {
-        cerr << "Usage: " << argv[0] << " --i <Makespan|Tardiness|LMAX> <instance_file>" << endl;
+      // --i <instance>              -> runs the four objectives, writes resultados/<instance>.csv
+      // --i <objective> <instance>  -> runs one objective, writes resultados/<objective>/<instance>.csv
+      if (i + 1 >= argc) {
+        cerr << "Usage: " << argv[0] << " --i [Makespan|Tardiness|LMAX|Completion] <instance_file>" << endl;
         return 1;
       }
-      g_objective = argv[i + 1];
-      if (g_objective != "Makespan" && g_objective != "Tardiness" && g_objective != "LMAX") {
-        cerr << "Invalid objective '" << g_objective << "'. Please use Makespan, Tardiness or LMAX." << endl;
-        return 1;
+      if (is_objective(argv[i + 1])) {
+        if (i + 2 >= argc) {
+          cerr << "Usage: " << argv[0] << " --i [Makespan|Tardiness|LMAX|Completion] <instance_file>" << endl;
+          return 1;
+        }
+        objectives = {argv[i + 1]};
+        instance_name = argv[i + 2];
+        i += 2;
+      } else {
+        objectives = ALL_OBJECTIVES;
+        instance_name = argv[i + 1];
+        i += 1;
       }
-      instance_name = argv[i + 2];
       instance_path = "src/instancias/" + instance_name;
       function_start = 1;
       function_end = 1;
-      i += 2;
     }
   }
   if (instance_path.empty() && function_start != function_end) {
@@ -119,6 +147,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  string results_path;
   FlowShop::InstanceData instance;
   if (!instance_path.empty()) {
     try {
@@ -134,85 +163,64 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    string results_path = "resultados/" + g_objective + "/" + instance_name;
-    results_file.open(results_path, std::ios::app);
-    if (!results_file.is_open()) {
-      cerr << "Error: could not open results file '" << results_path
-           << "'. Check that the folder resultados/" << g_objective << "/ exists." << endl;
+    string results_dir = objectives.size() == 1 ? RESULTS_DIR + "/" + objectives[0] : RESULTS_DIR;
+    results_path = results_dir + "/" + base_name(instance_name) + ".csv";
+    // checked before the runs, so a job does not spend its whole time limit and then fail to save
+    if (access(results_dir.c_str(), W_OK) != 0) {
+      cerr << "Error: folder '" << results_dir << "/' does not exist or is not writable." << endl;
+      delete g_flowshop_engine;
       return 1;
     }
-    // same number format that DMLSHADE::run() sets on cout
-    results_file << scientific << setprecision(8);
+  } else {
+    // CEC mode (--f): one pass, nothing is saved
+    objectives = {""};
   }
-  //int i = function_start - 1;
+
   if (function_start == function_end) {
     g_function_number = function_start;
-    cout << "\n-------------------------------------------------------" << endl;
-    cout << "Function = " << instance_path << ", Dimension size = " << g_problem_size << "\n" << endl;
-    results_file << "\n-------------------------------------------------------\n";
-    results_file << "Function = " << instance_path << ", Dimension size = " << g_problem_size << "\n\n";
-    if (g_use_time_limit) {
-      cout << "Time limit per run = ";
-      print_seconds(cout, g_max_time_ms / 1000.0);
-      cout << "\n" << endl;
-      results_file << "Time limit per run = ";
-      print_seconds(results_file, g_max_time_ms / 1000.0);
-      results_file << "\n\n";
+    string label = instance_path.empty() ? "F" + std::to_string(g_function_number) : base_name(instance_name);
+    // results line: instance;mean;best[;mean;best...] in the order of `objectives`
+    string results_line = base_name(instance_name);
+
+    for (const string &objective : objectives) {
+      g_objective = objective;
+      vector<Fitness> bsf_fitness_array(num_runs);
+      auto objective_start = std::chrono::steady_clock::now();
+
+      for (int j = 0; j < num_runs; j++) {
+        //searchAlgorithm *alg = new LSHADE();
+        int max_elite_size = std::round(elite_rate * g_pop_size);
+        int number_of_patterns = std::round(clusters_rate * max_elite_size);
+        searchAlgorithm *alg = new DMLSHADE(max_elite_size, number_of_patterns, mining_generation_step);
+        bsf_fitness_array[j] = alg->run();
+      }
+
+      Fitness mean_bsf_fitness = 0;
+      for (int j = 0; j < num_runs; j++) mean_bsf_fitness += bsf_fitness_array[j];
+      mean_bsf_fitness /= num_runs;
+      Fitness best_bsf_fitness = bsf_fitness_array[0];
+      for (int j = 1; j < num_runs; j++) best_bsf_fitness = min(best_bsf_fitness, bsf_fitness_array[j]);
+      double objective_time = std::chrono::duration<double>(std::chrono::steady_clock::now() - objective_start).count();
+
+      results_line += ";" + format_value(mean_bsf_fitness) + ";" + format_value(best_bsf_fitness);
+      cout << label << (objective.empty() ? "" : " " + objective) << ": medio " << format_value(mean_bsf_fitness)
+           << " melhor " << format_value(best_bsf_fitness) << " (" << format_value(std::round(objective_time * 10) / 10)
+           << " s)" << endl;
     }
 
-    Fitness *bsf_fitness_array = (Fitness*)malloc(sizeof(Fitness) * num_runs);
-    Fitness mean_bsf_fitness = 0;
-    Fitness std_bsf_fitness = 0; 
-    double *run_time_array = (double*)malloc(sizeof(double) * num_runs);
-    auto total_start = std::chrono::steady_clock::now();
-
-    for (int j = 0; j < num_runs; j++) { 
-      //searchAlgorithm *alg = new LSHADE();
-      int max_elite_size = std::round(elite_rate * g_pop_size);
-      int number_of_patterns = std::round(clusters_rate * max_elite_size);
-      searchAlgorithm *alg = new DMLSHADE(max_elite_size, number_of_patterns, mining_generation_step);
-      auto run_start = std::chrono::steady_clock::now();
-      bsf_fitness_array[j] = alg->run();
-      auto run_end = std::chrono::steady_clock::now();
-      run_time_array[j] = std::chrono::duration<double>(run_end - run_start).count();
-      cout << j + 1 << "th run, " << "error value = " << bsf_fitness_array[j] << ", time = ";
-      print_seconds(cout, run_time_array[j]);
-      cout << endl;
-      results_file << j + 1 << "th run, " << "error value = " << bsf_fitness_array[j] << ", time = ";
-      print_seconds(results_file, run_time_array[j]);
-      results_file << endl; // flush: finished runs are saved even if the job is killed later
+    // only flowshop mode (--i) saves; the file is overwritten, so a rerun replaces the old line
+    if (!results_path.empty()) {
+      std::ofstream results_file(results_path);
+      results_file << results_line << "\n";
+      results_file.close();
+      if (!results_file) {
+        cerr << "Error: could not write '" << results_path << "'." << endl;
+        delete g_flowshop_engine;
+        cleanup_binary_func();
+        return 1;
+      }
+      cout << results_path << " <- " << results_line << endl;
     }
-    for (int j = 0; j < num_runs; j++) mean_bsf_fitness += bsf_fitness_array[j];
-    mean_bsf_fitness /= num_runs;
-    for (int j = 0; j < num_runs; j++) std_bsf_fitness += pow((mean_bsf_fitness - bsf_fitness_array[j]), 2.0);
-    std_bsf_fitness = sqrt(std_bsf_fitness / num_runs);
-
-    double total_time = std::chrono::duration<double>(std::chrono::steady_clock::now() - total_start).count();
-    double mean_time = 0, std_time = 0;
-    for (int j = 0; j < num_runs; j++) mean_time += run_time_array[j];
-    mean_time /= num_runs;
-    for (int j = 0; j < num_runs; j++) std_time += pow((mean_time - run_time_array[j]), 2.0);
-    std_time = sqrt(std_time / num_runs);
-
-    Fitness best_bsf_fitness = bsf_fitness_array[0];
-    for (int j = 1; j < num_runs; j++) best_bsf_fitness = min(best_bsf_fitness, bsf_fitness_array[j]);
-
-    cout  << "\nmean = " << mean_bsf_fitness << ", std = " << std_bsf_fitness << ", best = " << best_bsf_fitness << endl;
-    cout  << "time: mean = "; print_seconds(cout, mean_time);
-    cout  << ", std = "; print_seconds(cout, std_time);
-    cout  << ", total = "; print_seconds(cout, total_time);
-    cout  << endl;
-
-    results_file << "\nmean = " << mean_bsf_fitness << ", std = " << std_bsf_fitness << ", best = " << best_bsf_fitness << "\n";
-    results_file << "time: mean = "; print_seconds(results_file, mean_time);
-    results_file << ", std = "; print_seconds(results_file, std_time);
-    results_file << ", total = "; print_seconds(results_file, total_time);
-    results_file << "\n";
-    // one machine-readable line per execution: grep RESULT resultados/*/* gives a table
-    results_file << "RESULT;" << instance_name << ";" << g_objective << ";" << mean_bsf_fitness << ";"
-                 << std_bsf_fitness << ";" << best_bsf_fitness << ";" << mean_time << endl;
-    free(bsf_fitness_array);
-    free(run_time_array);
   }
   delete g_flowshop_engine;
   cleanup_binary_func();

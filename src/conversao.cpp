@@ -256,7 +256,15 @@ namespace FlowShop {
                 total_flowtime = std::max(total_flowtime, finish_times[m - 1][j] -static_cast<double>(due_dates[j]));
             }
             return total_flowtime;
+        } else if (objective == "Completion") {
+            double total_completion = 0.0;
+            for (int j = 0; j < n; ++j) {
+                total_completion += finish_times[m - 1][j];
+            }
+            return total_completion;
         }
+        
+
 
 
         return 0.0;
@@ -302,6 +310,19 @@ namespace FlowShop {
                 if (tard > 0) total_tardiness += tard;
             }
             return total_tardiness;
+        } else if (objective == "LMAX") {
+            double total_flowtime = 0.0;
+            for (int j = 0; j < n; ++j) {
+                total_flowtime = std::max(total_flowtime, finish_times[m - 1][j] - static_cast<double>(due_dates[j]));
+            }
+            return total_flowtime;
+        }
+        else if (objective == "Completion") {
+            double total_completion = 0.0;
+            for (int j = 0; j < n; ++j) {
+                total_completion += finish_times[m - 1][j];
+            }
+            return total_completion;
         }
 
         return 0.0;
