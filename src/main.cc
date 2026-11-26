@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
   // objectives run in this execution: one (--i <objective> <instance>) or all four (--i <instance>)
   vector<string> objectives;
   //number of runs
-  int num_runs = 30;
+  int num_runs = 5;
     //dimension size. please select from 10, 30, 50, 100
   g_problem_size = 10;
   //available number of fitness evaluations
